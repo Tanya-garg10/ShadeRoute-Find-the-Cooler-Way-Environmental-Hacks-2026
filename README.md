@@ -5,8 +5,6 @@
 
 Pedestrian heat-risk and shade-aware walking navigation. ShadeRoute helps pedestrians, delivery workers, students, and elders compare walking paths in hot urban weather based on tree canopy coverage, ambient heat exposure, solar geometry, and public cooling amenities.
 
----
-
 ## 1. Problem & Solution
 
 Traditional navigation applications optimize walking routes purely for Euclidean distance or speed. During extreme Indian heatwaves (temperatures exceeding 42°C / 107°F), this routing logic frequently directs pedestrians onto unshaded, multi-lane asphalt boulevards where pavement surfaces heat up to 60°C. 
@@ -17,8 +15,6 @@ Traditional navigation applications optimize walking routes purely for Euclidean
 - Calculates diurnal solar zenith angles to evaluate direct sun exposure versus shade protection.
 - Incorporates crowdsourced community cooling assets: free municipal RO drinking fountains, shaded resting benches, and broken shade alerts.
 - Computes a transparent **0–100 Estimated Exposure Score** with honest missing-data handling.
-
----
 
 ## 2. Architecture & AWS Integration
 
@@ -58,8 +54,6 @@ graph TD
 2. **AWS Lambda (Node.js 22 LTS / ARM64)**: Stateless route aggregation, solar angle calculation, and DynamoDB document client handling.
 3. **Amazon DynamoDB**: `ShadeReports` table with Single-Table design and GSI (`CategoryIndex`) for fast category queries.
 4. **Local Fallback Parity**: When AWS credentials are not configured, the local Express server (`server.ts`) and client-side engine run with full feature parity.
-
----
 
 ## 3. Signature Features
 
@@ -101,8 +95,6 @@ graph TD
   - **Fastest Route** (e.g., 12 min, less walking time) vs. **Shade-Preferred** (e.g., 15 min, more mapped shade).
   - Immediate clarity on trade-offs and recommendation reasons.
 
----
-
 ## 4. Application Pages & Navigation
 
 | Route | Page | Purpose |
@@ -114,8 +106,6 @@ graph TD
 | `/community` | **Community Shade** | Crowdsource shade & water spots with duplicate detection |
 | `/dashboard` | **Impact Dashboard** | Urban Heat Action Dashboard for planners & citizens |
 | `/methodology` | **About & Data** | Mathematical formulation, weight simulator, and AWS architecture |
-
----
 
 ## 4. Getting Started
 
@@ -143,8 +133,6 @@ graph TD
    ```
    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
----
-
 ## 5. Testing
 
 Unit tests for the scoring engine, diurnal solar intensity curve, missing data handling, and custom weights are located in `src/utils/scoringEngine.test.ts`.
@@ -154,15 +142,11 @@ Run tests with:
 npm test
 ```
 
----
-
 ## 6. Known Limitations & Disclaimers
 
 - **Non-medical estimate**: ShadeRoute provides relative algorithmic estimates. It does not measure human internal core temperature or physiological heat illness susceptibility.
 - **Microclimate variations**: Local wind, humidity, and building surface reflectivity may create microclimatic variations.
 - **Tree Canopy Data Density**: Indian urban tree inventories vary across municipal corporations. ShadeRoute highlights data confidence tiers honestly.
-
----
 
 ## 7. License
 
