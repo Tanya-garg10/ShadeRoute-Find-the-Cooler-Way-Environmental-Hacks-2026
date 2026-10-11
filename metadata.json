@@ -1,0 +1,6 @@
+{
+  "name": "ShadeRoute — Find the Cooler Way",
+  "description": "Pedestrian heat-risk and shade-aware walking navigation. Compare routes by tree canopy coverage, ambient heat exposure, and community-verified cooling infrastructure.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

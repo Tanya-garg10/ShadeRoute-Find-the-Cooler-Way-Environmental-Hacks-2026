@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ShadeRoute - Serverless backend for heat-risk pedestrian navigation
+  Environmental Hacks 2026 | Bharat Builds Tour
+
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 512
+    Runtime: nodejs22.x
+    Architectures:
+      - arm64
+    Environment:
+      Variables:
+        NODE_OPTIONS: '--enable-source-maps'
+        DYNAMODB_TABLE: !Ref ShadeReportsTable
+
+Resources:
+  # HTTP API Gateway (Low latency, cost effective)
+  ShadeRouteApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # Core Lambda Function
+  ShadeScoringFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./lambda/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ShadeReportsTable
+      Events:
+        HealthCheck:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ShadeRouteApi
+            Path: /health
+            Method: GET
+        CompareRoutes:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ShadeRouteApi
+            Path: /routes/compare
+            Method: POST
+        GetReports:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ShadeRouteApi
+            Path: /reports
+            Method: GET
+        CreateReport:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ShadeRouteApi
+            Path: /reports
+            Method: POST
+
+  # DynamoDB Table for Community Shade Points
+  ShadeReportsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ShadeReports
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: category
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: CategoryIndex
+          KeySchema:
+            - AttributeName: category
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+Outputs:
+  ApiEndpoint:
+    Description: HTTP API Gateway endpoint URL for ShadeRoute
+    Value: !Sub 'https://${ShadeRouteApi}.execute-api.${AWS::Region}.amazonaws.com'
+  FunctionArn:
+    Description: ShadeScoring Lambda Function ARN
+    Value: !GetAtt ShadeScoringFunction.Arn
+  DynamoTableName:
+    Description: DynamoDB Table Name
+    Value: !Ref ShadeReportsTable
