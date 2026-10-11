@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Sliders,
   ShieldAlert,
+  Sparkles,
 } from 'lucide-react';
 import { LeafletMap } from '../components/Map/LeafletMap';
 import { LatLng, RouteAlternative, WeatherData, LocationPreset, ComfortMode } from '../types';
@@ -22,6 +23,7 @@ import { LOCATION_PRESETS, INITIAL_COMMUNITY_REPORTS } from '../data/initialData
 import { fetchPedestrianRoutes, searchLocations, GeocodingResult, reverseGeocode } from '../services/routingService';
 import { fetchLiveWeather } from '../services/weatherService';
 import { LiveDecisionCard } from '../components/LiveDecisionCard';
+import { getAIAdvice } from '../services/aiService';
 
 export const PlannerPage: React.FC = () => {
   // Navigation input states
@@ -86,6 +88,7 @@ export const PlannerPage: React.FC = () => {
   ) => {
     setIsLoadingRoutes(true);
     setRoutingError(null);
+    setAiAdvice('');
     try {
       const results = await fetchPedestrianRoutes(start, end, temp, hour, mode);
       if (results.length === 0) {
@@ -94,6 +97,7 @@ export const PlannerPage: React.FC = () => {
         setRoutes(results);
         const recommended = results.find(r => r.isRecommended) || results[0];
         setSelectedRouteId(recommended.id);
+        fetchRouteAIAdvice(results);
       }
     } catch {
       setRoutingError('Pedestrian routing service encountered a network error. Please try again or choose a preset.');
@@ -196,6 +200,27 @@ export const PlannerPage: React.FC = () => {
   };
 
   const selectedRoute = routes.find(r => r.id === selectedRouteId) || routes[0];
+
+  // AI Advisory state
+  const [aiAdvice, setAiAdvice] = useState<string>('');
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+
+  const fetchRouteAIAdvice = async (routeList: RouteAlternative[]) => {
+    if (routeList.length === 0) return;
+    setIsLoadingAI(true);
+    setAiAdvice('');
+    const context = routeList.map(r => ({
+      name: r.name,
+      exposureScore: r.exposureScore,
+      shadeCoveragePercent: r.shadeCoveragePercent,
+      durationMinutes: r.durationMinutes,
+      waterPointsEnRoute: r.waterPointsEnRoute,
+      exposureTier: r.exposureTier,
+    }));
+    const result = await getAIAdvice({ type: 'route', context: { routes: context, ambientTempC: simulatedTemp, hour: simulatedHour } });
+    setAiAdvice(result.advice || result.error || '');
+    setIsLoadingAI(false);
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-stone-100">
@@ -682,6 +707,22 @@ export const PlannerPage: React.FC = () => {
                   Values are relative estimates computed from tree canopy surveys and solar geometry models. Microclimates may vary with building reflections and localized wind.
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* AI Heat Advisory Panel */}
+          {(aiAdvice || isLoadingAI) && (
+            <div className="bg-white rounded-2xl p-4 border border-emerald-200 shadow-sm space-y-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-800">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span>AI Heat Advisory</span>
+                <span className="ml-auto text-[10px] font-normal text-stone-400 font-mono">Featherless AI · Llama 3.3 70B</span>
+              </div>
+              {isLoadingAI ? (
+                <div className="text-xs text-stone-400 animate-pulse">Generating heat-safety advice...</div>
+              ) : (
+                <p className="text-xs text-stone-700 leading-relaxed">{aiAdvice}</p>
+              )}
             </div>
           )}
 

@@ -11,16 +11,20 @@ import {
   Thermometer,
   CloudSun,
   ShieldAlert,
+  Sparkles,
 } from 'lucide-react';
 import { fetchHourlyForecast } from '../services/weatherService';
 import { TimeShiftSlot, LocationPreset } from '../types';
 import { LOCATION_PRESETS } from '../data/initialData';
+import { getAIAdvice } from '../services/aiService';
 
 export const TimeShiftPage: React.FC = () => {
   const [selectedPreset, setSelectedPreset] = useState<LocationPreset>(LOCATION_PRESETS[0]);
   const [hourlySlots, setHourlySlots] = useState<TimeShiftSlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState<TimeShiftSlot | null>(null);
+  const [aiTip, setAiTip] = useState<string>('');
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
 
   useEffect(() => {
     loadForecast(selectedPreset.start.lat, selectedPreset.start.lng);
@@ -28,14 +32,30 @@ export const TimeShiftPage: React.FC = () => {
 
   const loadForecast = async (lat: number, lng: number) => {
     setIsLoading(true);
+    setAiTip('');
     const slots = await fetchHourlyForecast(lat, lng);
     setHourlySlots(slots);
     if (slots.length > 0) {
       // Default to current hour or peak hour slot
       const current = slots.find(s => s.isCurrentHour) || slots[Math.floor(slots.length / 2)];
       setSelectedSlot(current);
+      fetchTimeshiftAI(slots);
     }
     setIsLoading(false);
+  };
+
+  const fetchTimeshiftAI = async (slots: TimeShiftSlot[]) => {
+    setIsLoadingAI(true);
+    const context = slots.map(s => ({
+      hour: s.displayTime,
+      score: s.estimatedExposureScore,
+      tempC: s.tempC,
+      uvIndex: s.uvIndex,
+      tier: s.exposureTier,
+    }));
+    const result = await getAIAdvice({ type: 'timeshift', context: { hourlySlots: context, city: selectedPreset.city } });
+    setAiTip(result.advice || result.error || '');
+    setIsLoadingAI(false);
   };
 
   // Find lowest exposure slot in afternoon/evening
@@ -132,6 +152,22 @@ export const TimeShiftPage: React.FC = () => {
                 {bestSlot.exposureTier} &middot; {bestSlot.tempC}°C
               </span>
             </div>
+          </div>
+        )}
+
+        {/* AI Departure Tip */}
+        {(aiTip || isLoadingAI) && (
+          <div className="bg-white rounded-2xl p-4 border border-emerald-200 shadow-sm space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-800">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <span>AI Departure Advisor</span>
+              <span className="ml-auto text-[10px] font-normal text-stone-400 font-mono">Featherless AI · Llama 3.3 70B</span>
+            </div>
+            {isLoadingAI ? (
+              <div className="text-xs text-stone-400 animate-pulse">Analysing hourly heat data...</div>
+            ) : (
+              <p className="text-xs text-stone-700 leading-relaxed">{aiTip}</p>
+            )}
           </div>
         )}
 

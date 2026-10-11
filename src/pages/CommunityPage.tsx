@@ -16,6 +16,7 @@ import { LeafletMap } from '../components/Map/LeafletMap';
 import { CommunityReport, CommunityCategory, LatLng } from '../types';
 import { getCommunityReports, submitCommunityReport, upvoteReport } from '../services/reportService';
 import { reverseGeocode } from '../services/routingService';
+import { getAIAdvice } from '../services/aiService';
 
 export const CommunityPage: React.FC = () => {
   const [reports, setReports] = useState<CommunityReport[]>([]);
@@ -24,6 +25,8 @@ export const CommunityPage: React.FC = () => {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [pinDropMode, setPinDropMode] = useState(false);
   const [droppedPin, setDroppedPin] = useState<LatLng | null>(null);
+  const [aiSummary, setAiSummary] = useState<string>('');
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
 
   // Form fields
   const [formCategory, setFormCategory] = useState<CommunityCategory>('tree_canopy');
@@ -40,6 +43,23 @@ export const CommunityPage: React.FC = () => {
   const loadReports = async () => {
     const list = await getCommunityReports();
     setReports(list);
+    fetchCommunityAI(list);
+  };
+
+  const fetchCommunityAI = async (list: CommunityReport[]) => {
+    if (list.length === 0) return;
+    setIsLoadingAI(true);
+    setAiSummary('');
+    const context = list.slice(0, 10).map(r => ({
+      category: r.category,
+      title: r.title,
+      locationName: r.locationName,
+      verificationCount: r.verificationCount,
+      status: r.status,
+    }));
+    const result = await getAIAdvice({ type: 'community', context: { reports: context } });
+    setAiSummary(result.advice || result.error || '');
+    setIsLoadingAI(false);
   };
 
   const handleMapClick = async (latLng: LatLng) => {
@@ -184,7 +204,23 @@ export const CommunityPage: React.FC = () => {
         
         {/* Left Column: Filterable Reports List (lg:col-span-5) */}
         <div className="lg:col-span-5 space-y-4">
-          
+
+          {/* AI Community Summary */}
+          {(aiSummary || isLoadingAI) && (
+            <div className="bg-white rounded-2xl p-4 border border-emerald-200 shadow-sm space-y-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-800">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span>AI Infrastructure Analysis</span>
+                <span className="ml-auto text-[10px] font-normal text-stone-400 font-mono">Featherless AI · Llama 3.3 70B</span>
+              </div>
+              {isLoadingAI ? (
+                <div className="text-xs text-stone-400 animate-pulse">Analysing community reports...</div>
+              ) : (
+                <p className="text-xs text-stone-700 leading-relaxed">{aiSummary}</p>
+              )}
+            </div>
+          )}
+
           {/* Category Filter Tabs */}
           <div className="bg-white p-2 rounded-2xl border border-stone-200 shadow-2xs flex items-center gap-1 overflow-x-auto text-xs">
             <button

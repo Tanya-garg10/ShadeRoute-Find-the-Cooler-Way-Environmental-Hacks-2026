@@ -4,6 +4,9 @@ import { INITIAL_COMMUNITY_REPORTS } from '../data/initialData';
 import { CommunityReport, RouteAlternative } from '../types';
 import { fetchPedestrianRoutes } from '../services/routingService';
 
+const FEATHERLESS_API_KEY = process.env.FEATHERLESS_API_KEY || '';
+const FEATHERLESS_MODEL = process.env.FEATHERLESS_MODEL || 'meta-llama/Llama-3.3-70B-Instruct';
+
 export const apiRouter = Router();
 
 // In-memory reports store for local backend
@@ -108,4 +111,64 @@ apiRouter.post('/reports/:id/verify', (req: Request, res: Response) => {
   }
 
   res.json({ success: true, verificationCount: report.verificationCount, status: report.status });
+});
+
+// AI Heat Advisory — powered by Featherless AI (OpenAI-compatible)
+apiRouter.post('/ai/advice', async (req: Request, res: Response) => {
+  const { type, context } = req.body;
+
+  if (!FEATHERLESS_API_KEY) {
+    res.status(503).json({ error: 'FEATHERLESS_API_KEY not configured' });
+    return;
+  }
+
+  const prompts: Record<string, string> = {
+    route: `You are ShadeRoute's heat-safety advisor for Indian pedestrians. Given this route comparison data:
+${JSON.stringify(context, null, 2)}
+In 2-3 concise sentences, give a practical heat-safety tip for a pedestrian choosing between these routes. Mention specific shade % or score numbers. Be direct, no intro fluff.`,
+
+    timeshift: `You are ShadeRoute's departure-time advisor. Given this hourly heat data for an Indian city:
+${JSON.stringify(context, null, 2)}
+In 2 sentences, recommend the best departure window and briefly explain why, referencing the UV index and temperature. Be specific and direct.`,
+
+    community: `You are ShadeRoute's urban heat analyst. Given these community-submitted shade reports from an Indian city:
+${JSON.stringify(context, null, 2)}
+In 2-3 sentences, summarize the key shade gaps or infrastructure needs highlighted by these reports. Be concise and actionable.`,
+  };
+
+  const prompt = prompts[type];
+  if (!prompt) {
+    res.status(400).json({ error: 'Invalid advice type. Use: route | timeshift | community' });
+    return;
+  }
+
+  try {
+    const response = await fetch('https://api.featherless.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${FEATHERLESS_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: FEATHERLESS_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 150,
+        temperature: 0.5,
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      res.status(502).json({ error: 'Featherless AI error', details: err });
+      return;
+    }
+
+    const data = await response.json();
+    const advice = data.choices?.[0]?.message?.content?.trim() || '';
+
+    res.json({ advice, model: FEATHERLESS_MODEL });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: 'AI request failed', details: message });
+  }
 });
